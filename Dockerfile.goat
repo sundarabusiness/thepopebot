@@ -1,0 +1,48 @@
+FROM node:22-bookworm-slim
+
+# Install system dependencies for browser automation + git
+RUN apt-get update && apt-get install -y \
+    libssl-dev \
+    libgconf-2-4 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxss1 \
+    libappindicator1 \
+    libindicator7 \
+    libgbm1 \
+    libxshmfence1 \
+    libnss3 \
+    libgtk-3-0 \
+    libxcb-dri3-0 \
+    fonts-liberation \
+    xdg-utils \
+    git \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.sources > /dev/null \
+    && apt-get update && apt-get install -y gh \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy thepopebot package
+COPY . /app/
+
+# Install dependencies
+RUN npm install --production
+
+# Install Pi agent for autonomous execution
+RUN npm install -g @mariozechner/pi-coding-agent
+
+# Volume for GOAT state
+VOLUME ["/app/state"]
+
+ENV NODE_ENV=production
+
+# Default entrypoint: start event handler
+CMD ["npm", "start"]

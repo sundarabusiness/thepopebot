@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  goat-autopilot:
+    build:
+      context: .
+      dockerfile: Dockerfile.goat
+    container_name: goat-autopilot
+    restart: always
+    ports:
+      - "8877:3000"  # Event handler API
+    volumes:
+      - /opt/goat/state:/app/state          # GOAT state directory (locks, activity, agents)
+      - /opt/goat/.env:/app/.env:ro         # Environment config (read-only)
+      - /opt/goat/config:/app/config:ro     # GOAT configuration
+    environment:
+      NODE_ENV: production
+      APP_URL: "http://100.111.3.59:8877"
+      AUTH_SECRET: ${AUTH_SECRET}
+      GH_TOKEN: ${GH_TOKEN}
+      GH_OWNER: ${GH_OWNER}
+      GH_REPO: ${GH_REPO}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      DATABASE_PATH: /app/state/thepopebot.sqlite
+    networks:
+      - goat-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Mission Control Dashboard
+  mission-control:
+    image: nginx:alpine
+    container_name: mission-control
+    restart: always
+    ports:
+      - "8888:80"
+    volumes:
+      - /opt/goat/mission-control.html:/usr/share/nginx/html/index.html:ro
+      - /opt/goat/mission-control.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - goat-network
+    depends_on:
+      - goat-autopilot
+
+networks:
+  goat-network:
+    driver: bridge
